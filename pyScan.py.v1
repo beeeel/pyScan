@@ -1,0 +1,48 @@
+import importlib
+
+def read_config_file(confile):
+    """Reads the configuration file and returns its contents as a list of lines."""
+    with open(confile, 'r') as file:
+        return file.readlines()
+
+def main(confile):
+    config_lines = read_config_file(confile)
+    imported_modules = {}
+    action_list = []
+    lastword = ""
+    
+    for line in config_lines:
+        words = line.strip().split()
+        if not words:
+            continue  # Skip empty lines
+
+        word = words[0]
+        
+        # Check if the last word was 'action', indicating the next word might be a module to import
+        if lastword == "action":
+            module_name = "py_" + words[0]  # Assuming the module name follows the word 'action'
+            try:
+                # Dynamically import the module
+                imported_module = importlib.import_module(module_name)
+                # Store the imported module in a dictionary with the module name as the key
+                imported_modules[module_name] = imported_module
+                print(f"Successfully imported module: {module_name}")
+                # Append the imported module to the action list
+                action_list.append(imported_modules.get(module_name))
+            except ImportError as e:
+                print(f"Error importing module {module_name}: {e}")
+        
+        lastword = word
+
+    # Execute actions from the action list
+    for action in action_list:
+        # Assuming each module has a `run` function or similar method to execute the action
+        if hasattr(action, 'run'):
+            action.run()
+        else:
+            print(f"Module {action.__name__} does not have a 'run' method.")
+
+if __name__ == "__main__":
+    # Example usage
+    config_file_path = 'example_con.con'  # Replace with your config file path
+    main(config_file_path)
