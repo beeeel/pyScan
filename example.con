@@ -1,21 +1,4 @@
-action stage
-    axis 0
-    scan 0 10 1
-    
-    action stage
-        axis 1
-        scan 0 20 1
-    
-        action photodiode
-            channel 1, 2
-            n_sample 1000
-            f_sample 5000
-            range 0
-            channel_out 7
-        end
-
-        action spectrometer
-            integration 1
-        end
-    end
+action A2D
+    channels 1
+    range 1
 end
