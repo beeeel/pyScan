@@ -1,5 +1,18 @@
 """
 Generic stage action for pyScan stages to use. This way common things like scan grid construction will be easy to inherit.
+
+Supported parameters:
+    scan start step end
+    axis_name name
+    scan_mode [relative]/absolute
+    restore true # always true if present, false if not present
+
+Derived classes must implement:
+    get_here
+    go_to
+
+Optional setup and init can supplement superclass setup by including super().setup()
+
 """
 from py_common import Action
 
@@ -28,6 +41,9 @@ class Stage1D(Action):
         """
         Setup method for the stage, called before the action is run.
         """
+        # I guess I need the axis name somewhere
+        self.axis_name = self.parameters.get("axis_name", "")[0]
+
         super().setup()
         print(f"Setting up {self.axis_name}-Axis Stage.")
         
