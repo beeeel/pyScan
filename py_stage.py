@@ -1,38 +1,102 @@
-class Stage1D:
-    def __init__(self, axis_name="X"):
+"""
+Generic stage action for pyScan stages to use. This way common things like scan grid construction will be easy to inherit.
+"""
+from py_common import Action
+
+class Stage1D(Action):
+    def __init__(self, **kwargs):
         """
         Initializes the 1D stage.
         
         Parameters:
         - axis_name (str): Name of the axis (e.g., 'X', 'Y', 'Z').
         """
-        self.axis_name = axis_name
+        super().__init__(**kwargs)
+        self.axis_name = ""
+        
+        # Scan logic/prealloc
         self.scan_points = []  # List of points to scan
         self.current_point_index = 0  # Index of the next point to visit
+        self.initial_position = 0.0
+        
+        # Scan options
+        self.start = 0.0
+        self.step = 0.0
+        self.end = 0.0
+            
+    def setup(self):
+        """
+        Setup method for the stage, called before the action is run.
+        """
+        super().setup()
+        print(f"Setting up {self.axis_name}-Axis Stage.")
+        
+        # Parse the scan parameters and scan mode
+        scan_mode = self.parameters.get("scan_mode", ["relative"])[0]  # Default to relative mode
+        scan_params = self.parameters.get("scan", None)
 
-    def construct_grid_relative(self, start=0, step=1, num_points=10):
+        if not scan_params:
+            raise ValueError(f"No scan parameters provided for {self.axis_name}-Axis.")
+        
+        try:
+            self.start = float(scan_params[0])
+            self.step = float(scan_params[1])
+            self.end = float(scan_params[2])
+        except (ValueError, IndexError) as e:
+            raise ValueError(f"Invalid scan parameters for {self.axis_name}-Axis: {e}")
+        
+        # Maybe find where we are
+        if scan_mode == "relative" or "restore" in self.parameters:
+            # Get current location (only needed for relative scans or when restoring)
+            self.get_here()
+
+        # Choose the appropriate grid constructor
+        if scan_mode == "relative":
+            self.construct_grid_relative()
+        elif scan_mode == "absolute":
+            self.construct_grid_absolute()
+        else:
+            raise ValueError(f"Unknown scan mode '{scan_mode}' for {self.axis_name}-Axis.")
+
+    def run(self):
+        """
+        Runs the stage action. Typically moves to the next point.
+        """
+        if not self.scan_points:
+            raise ValueError("No scan points defined. Use construct_grid_relative or construct_grid_absolute.")
+
+        next_point = self.get_next_point()
+        print(f"{self.axis_name}-Axis: Moving to next point {next_point}.")
+        self.go_to(next_point)
+
+        # If there are child actions, run them as well.
+        for child in self.children:
+            child.run()
+
+    def cleanup(self):
+        """
+        Cleanup method for the stage, called after the action is run.
+        """
+        if "restore" in self.parameters:
+            self.go_to(self.initial_position)
+
+        super().cleanup()
+        print(f"Cleaning up {self.axis_name}-Axis Stage.")
+
+    def construct_grid_relative(self, initial_position=self.initial_position):
         """
         Constructs a regular grid of points relative to the starting position.
-        
-        Parameters:
-        - start (float): The starting position of the grid.
-        - step (float): Step size between points.
-        - num_points (int): Number of points in the grid.
         """
-        self.scan_points = [start + i * step for i in range(num_points)]
+        num_points = int((self.end - self.start) / self.step) + 1
+        self.scan_points = [initial_position + i * self.step for i in range(num_points)]
         self.current_point_index = 0  # Reset index
-        print(f"{self.axis_name}-Axis Grid (Relative): {self.scan_points}")
+        print(f"{self.axis_name}-Axis Grid: {self.scan_points}")
 
-    def construct_grid_absolute(self, points):
+    def construct_grid_absolute(self):
         """
         Constructs a grid using absolute positions.
-        
-        Parameters:
-        - points (list of float): List of absolute positions to scan.
         """
-        self.scan_points = points
-        self.current_point_index = 0  # Reset index
-        print(f"{self.axis_name}-Axis Grid (Absolute): {self.scan_points}")
+        self.construct_grid_relative(initial_position=0)
 
     def get_next_point(self):
         """
@@ -56,6 +120,13 @@ class Stage1D:
         - point (float): Target position for the stage.
         """
         raise NotImplementedError("Derived classes must implement the 'go_to' method.")
+    
+    def get_here(self):
+        """
+        Placeholder for finding current co-ordinate.
+        Derived classes must implement this method which fills self.initial_position
+        """
+        raise NotImplementedError("Derived classes must implement the 'get_here' method.")
 
     def move_to_next_point(self):
         """
