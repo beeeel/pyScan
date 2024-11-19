@@ -1,44 +1,107 @@
-# Example action in py_asiScan.py
-class asiScanAction:
-    def __init__(self):
-        self.parameters = {}
-        self.child_actions = []
+import platform
+import serial
+from py_stage1D import Stage1D
 
-    def _generic_parse_line(self, line):
-        """Generic parsing method to store lines in the parameters dictionary."""
-        parts = line.split()
-        key = parts[0]
-        value = parts[1:]
-        self.parameters[key] = value
+class AsiScan(Stage1D):
+    def __init__(self, axis_name="X", port=None, baudrate=9600, timeout=1, **kwargs):
+        """
+        Initializes the ASI MS-2000 stage as a 1D stage with platform-specific default ports.
+        
+        Parameters:
+        - axis_name (str): The axis to control ('X' or 'Y').
+        - port (str): Serial port to communicate with the stage (overrides default).
+        - baudrate (int): Baud rate for serial communication.
+        - timeout (float): Timeout for serial communication in seconds.
+        """
+        super().__init__(axis_name=axis_name, **kwargs)
 
-    def add_child(self, child_action):
-        """Add child actions."""
-        self.child_actions.append(child_action)
+        # Platform-specific default ports
+        if port is None:
+            system = platform.system()
+            if system == "Windows":
+                self.port = "COM4"  # Default for Windows
+            elif system == "Linux":
+                self.port = "/dev/ttyUSB0"  # Default for Linux
+            elif system == "Darwin":  # macOS
+                self.port = "/dev/cu.usbserial"
+            else:
+                raise ValueError(f"Unsupported platform: {system}")
+        else:
+            self.port = port  # Override with user-specified port
 
-    def run(self):
-        """Process the stored parameters and execute the action."""
-        axis = int(self.parameters.get('axis', [0])[0])
-        scan_values = list(map(float, self.parameters.get('scan', [])))
-        restore = 'restore' in self.parameters
-        save = 'save' in self.parameters
+        self.baudrate = baudrate
+        self.timeout = timeout
+        self.serial_connection = None
 
-        print(f"Running asiScan Action: axis={axis}, scan={scan_values}, restore={restore}, save={save}")
+    def setup(self):
+        """
+        Setup method for the ASI MS-2000 stage.
+        Establishes the shared serial connection and queries the stage status.
+        """
+        super().setup()
 
-        # Simulate scanning over the defined range
-        scan_start, scan_end, step_size = scan_values
-        current_position = scan_start
+        if "port" in self.parameters:
+            port = self.parameters.get("port", None)
+            if port is not None:
+                self.port = port
 
-        while current_position <= scan_end:
-            print(f"Moving to position {current_position} on axis {axis}")
+        print(f"Setting up ASI MS-2000 {self.axis_name}-Axis Stage on port {self.port}.")
 
-            # Execute each child action at this position
-            for child_action in self.child_actions:
-                child_action.run()
+        # Get a shared serial connection
+        self.serial_connection = SerialConnectionManager.get_connection(
+            port=self.port, baudrate=self.baudrate, timeout=self.timeout
+        )
 
-            current_position += step_size
+        # Query the stage to confirm it's responsive
+        try:
+            self.serial_connection.write(b"WHERE\r")
+            response = self.serial_connection.readline().decode().strip()
+            print(f"Stage response: {response}")
+        except serial.SerialException as e:
+            raise RuntimeError(f"Error communicating with stage: {e}")
 
-        if restore:
-            print(f"Restoring position on axis {axis}.")
+    def cleanup(self):
+        """
+        Cleanup method for the ASI MS-2000 stage.
+        Closes the shared serial connection (if no other actions need it).
+        """
+        SerialConnectionManager.close_connection(self.port)
+        super().cleanup()
 
-        if save:
-            print("Saving scan data.")
+    def go_to(self, point):
+        """
+        Moves the stage to a specified point on the given axis.
+
+        Parameters:
+        - point (float): The target position in mm.
+        """
+        if not self.serial_connection or not self.serial_connection.is_open:
+            raise RuntimeError("Serial connection is not established.")
+
+        # Construct and send the MOVE command
+        command = f"MOVE {self.axis_name}={point:.6f}\r"
+        self.serial_connection.write(command.encode())
+        response = self.serial_connection.readline().decode().strip()
+        print(f"Move response: {response}")
+
+    def get_here(self):
+        """
+        Retrieves the current position of the stage on the specified axis
+        and updates self.initial_position.
+        """
+        if not self.serial_connection or not self.serial_connection.is_open:
+            raise RuntimeError("Serial connection is not established.")
+
+        # Construct and send the WHERE command
+        command = f"WHERE {self.axis_name}\r"
+        self.serial_connection.write(command.encode())
+        response = self.serial_connection.readline().decode().strip()
+
+        try:
+            # Parse the response to extract the position
+            position = float(response.split('=')[1])
+            self.initial_position = position
+            print(f"{self.axis_name}-Axis Current Position: {self.initial_position} mm")
+        except (IndexError, ValueError):
+            raise RuntimeError(f"Failed to parse position from response: {response}")
+
