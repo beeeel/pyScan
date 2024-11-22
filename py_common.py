@@ -9,6 +9,7 @@ class Action:
         self.parameters = {}
         # List to hold child actions, for nested configurations
         self.child_actions = []
+        self.parent = None
 
     def parse_line(self, words):
         """Parse a line from the config file, storing key-value pairs in the parameters dictionary."""

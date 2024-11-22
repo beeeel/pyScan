@@ -1,0 +1,11 @@
+# Acquire data from 3 A2D channels
+action count
+count 10000
+action A2D
+    channels ai0 ai1 ai2
+    range 1
+    rate 10000
+    samples 1000
+    device Dev2
+    print true
+end

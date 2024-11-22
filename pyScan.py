@@ -1,4 +1,5 @@
 import importlib
+import argparse
 #from py_common import Action
 
 def read_config_file(confile):
@@ -46,6 +47,7 @@ class ActionParser:
                     # Add current_action as a child if inside another action, otherwise add it to main actions
                     if parent_action:
                         parent_action.add_child_action(current_action)
+                        current_action.parent = parent_action
                     else:
                         self.actions.append(current_action)
 
@@ -53,14 +55,13 @@ class ActionParser:
                     parent_action = current_action
 
                 except (ImportError, AttributeError) as e:
-                    print(f"Error importing or instantiating {class_name} from {module_name}: {e}")
-
+                    print(f"Error importing or instantiating {class_name} from {module_name}: {e}")                
             elif word == "end":
                 # Move up one level in the action hierarchy if 'end' is encountered
                 if parent_action:
                     parent_action = parent_action.parent if hasattr(parent_action, 'parent') else None
 
-            else:
+            elif word!= '#':
                 # Let the current action parse its specific line
                 if current_action:
                     current_action.parse_line(words)
@@ -89,10 +90,23 @@ class ActionParser:
 
 # Example usage
 if __name__ == "__main__":
-    config_file_path = 'example.con'  # Replace with your config file path
-    parser = ActionParser(config_file_path)
-    parser.parse()
-    parser.setup_actions()
-    parser.run_actions()
-    parser.cleanup_actions()
+    # Create argument parser
+    parser = argparse.ArgumentParser(description="Run a microscope scan based on a configuration file.")
+    parser.add_argument(
+            "confile",
+            type=str,
+            nargs="?",
+            default="trapped_bead_2.con",
+            help="Path to the .con configuration file (default: default.con)."
+        )
+    # Parse arguments
+    args = parser.parse_args()
 
+    # Create an ActionParser instance and run the experiment
+    try:
+        parser = ActionParser(args.confile)
+        parser.parse()
+        parser.setup_actions()
+        parser.run_actions()
+    finally:
+        parser.cleanup_actions()

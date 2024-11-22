@@ -1,0 +1,9 @@
+action count
+count 1000
+action A2D
+    channels ai0 ai1 ai2
+    range 1
+    samples 10
+    print true
+end
+end
