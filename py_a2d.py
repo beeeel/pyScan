@@ -51,7 +51,7 @@ class A2D(Action):
         self.range       = float(self.parameters.get("range", self.range))
         self.device      = self.parameters.get("device", self.device)
         
-        if len(self.channels) == 1:
+        if isinstance(self.channels, str):
             self.channels = [self.channels]
         
         # Set up the DAQ card task
@@ -86,7 +86,7 @@ class A2D(Action):
 
         while total_samples < self.num_samples:
             # Calculate how many samples are still needed
-            samples_to_read = min(1000, self.num_samples - total_samples)
+            samples_to_read = min(10000, self.num_samples - total_samples)
     
             try:
                 # Read a chunk of data
@@ -125,11 +125,13 @@ class A2D(Action):
                 # Multi-channel data
                 for i, channel_data in enumerate(self.data):
                     mean_voltage = np.mean(channel_data)
-                    print(f"Channel {self.channels[i]} mean voltage: {mean_voltage:.6f} V")
+                    std_voltage = np.std(channel_data)
+                    print(f"Channel {self.channels[i]} mean +/- s.d. voltage: {mean_voltage:.6f} +/- {std_voltage:.6f} V")
             else:
                 # Single-channel data
                 mean_voltage = np.mean(self.data)
-                print(f"Channel {self.channels[0]} mean voltage: {mean_voltage:.6f} V")
+                std_voltage = np.std(self.data)
+                print(f"Channel {self.channels[0]} mean +/- s.d. voltage: {mean_voltage:.6f} +/- {std_voltage:.6f} V")
         else:
             print("No data available to print.")
 

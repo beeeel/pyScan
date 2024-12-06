@@ -1,3 +1,55 @@
+"""
+pyScan.py
+
+Project Description:
+---------------------
+pyScan is a versatile and extensible framework for configuring and running experimental data acquisition and control 
+routines. It reads user-defined "con" configuration files, initializes hardware resources, and executes nested sequences 
+of actions such as analog-to-digital conversion (A2D), stage movements, delays, and more.
+
+The framework is designed to be modular, allowing users to easily add new hardware or functionality by implementing 
+custom action classes.
+
+How to Use:
+-----------
+1. Prepare a configuration file (".con") specifying the desired sequence of actions, hardware parameters, and settings.
+   - Example format:
+     ```
+     action A2D
+         rate 10000
+         samples 5000
+     end
+     ```
+
+2. Run the program from the command line or within an IDE:
+   - Command line:
+     ```
+     python pyScan.py <confile>
+     ```
+   - From Spyder:
+     ```
+     runfile('<path-to-pyScan.py>', args='<confile>')
+     ```
+
+3. Logs and data files will be saved in the working directory or an optional dedicated folder (to be implemented).
+
+Known Bugs/Flaws/Limitations:
+-----------------------------
+1. **Beep Action Limitation**: The current implementation of the "beep" action does not preserve the exact order of 
+   "beep" and "boop" commands from the configuration file due to dictionary-based parameter parsing.
+2. **File Handling**: No user interaction to handle existing files (overwrite/append/rename). Planned improvement.
+3. **Stage Precision**: Movements are subject to hardware-specific precision limits. Users must ensure compatibility.
+4. **Error Handling**: Exceptions are caught and logged, but some actions may not gracefully recover from critical errors.
+5. **Logging**: Console output is not yet logged to a file (planned improvement).
+6. **Cross-platform Issues**: Some features, like hardware detection, may behave differently on Linux vs. Windows.
+7. **Repeated actions**: Unknown behaviour for repeated A2D actions, probably the system cannot deal with it.
+
+Authors:
+--------
+- Framework Author: ChatGPT (OpenAI)
+- Project Curator: Will Hardiman (OPG, University of Nottingham) [bill.hardiman1995@gmail.com]
+"""
+
 import importlib
 import argparse
 #from py_common import Action
